@@ -7,10 +7,7 @@ float rixxtan(float);
 float rixxsin0(float);
 float rixxtan0(float);
 
-int SIN_COUNT = 5;
-int COS_COUNT = 5;
-int TAN_COUNT = 5;
-
+int MAX_ITER = 5;
 
 int main() {
     int n;
@@ -50,32 +47,71 @@ int main() {
 
 
 float rixxsin(float x) {
-    while (x < -PI) {
-       x += 2*PI;
+    while (x < -M_PI) {
+       x += 2*M_PI;
     }
 
-    while (x > PI) {
-       x -= 2*PI;
+    while (x > M_PI) {
+       x -= 2*M_PI;
     }
 
-    if (x < -PI/2) {
-        return -rixxsin0(x + PI);
-    } else if (x > PI/2) {
-        return -rixxsin0(x - PI);
+    if (x < -M_PI/2) {
+        return -rixxsin0(x + M_PI);
+    } else if (x > M_PI/2) {
+        return -rixxsin0(x - M_PI);
     } else {
         return rixxsin0(x);
     }
 }
 
 float rixxsin0(float x) {
-    return 0;
+    int i, fac = 1;
+    float pow = x, result = x;
+
+    for (i = 1; i < MAX_ITER; i++) {
+        pow *= x * x;
+        fac *= (2 * i) * (2 * i + 1);
+        result -= (pow/fac);
+        i++;
+
+        pow *= x * x;
+        fac *= (2 * i) * (2 * i + 1);
+        result += (pow/fac);
+    }
+    
+    return result;
 }
 
 
 float rixxcos(float x) {
-    return 0;
+    return rixxsin(M_PI/2 - x);
 }
 
 float rixxtan(float x) {
-    return 0;
+    while (x < -M_PI/2) {
+        x += M_PI;
+    }
+
+    while (x > M_PI/2) {
+        x -= M_PI;
+    }
+    
+    if ((x == M_PI/2) || (x == -M_PI/2)) {
+        return 2;
+    } else {
+        return rixxtan0(x);
+    }
+}
+
+float rixxtan0(float x) {
+    float cosinus, sinus = rixxsin0(x);
+    float cos_x = M_PI/2 - x;
+
+    if (cos_x > M_PI/2) {
+        cosinus = -rixxsin0(cos_x - M_PI);
+    } else {
+        cosinus = rixxsin0(cos_x);
+    }
+
+    return sinus / cosinus;
 }
