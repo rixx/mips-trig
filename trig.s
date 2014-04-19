@@ -11,42 +11,73 @@ newline: .asciiz "\n"
 .text
 
 main:
-    la      $a0, xmin       # load address of "x_min: " into $a0
-    li      $v0, 4          # load system code for string output
-    syscall                 # print string
+    la      $a0, xmin           # load address of "x_min: " into $a0
+    li      $v0, 4              # load system code for string output
+    syscall                     # print string
 
-    li      $v0, 6          # load system code for float input
-    syscall                 # read float into $f0
-    mov.s   $f1, $f0        # move x_min to $f1
+    li      $v0, 6              # load system code for float input
+    syscall                     # read float into $f0
+    mov.s   $f1, $f0            # move x_min to $f1
     
-    la      $a0, xmax       # load address of "x_max: " into $a0
-    li      $v0, 4          # load system code for string output
-    syscall                 # print string
+    la      $a0, xmax           # load address of "x_max: " into $a0
+    li      $v0, 4              # load system code for string output
+    syscall                     # print string
 
-    li      $v0, 6          # load system code for float input
-    syscall                 # read float into $f0
-    mov.s   $f2, $f0        # move x_max to $f2
+    li      $v0, 6              # load system code for float input
+    syscall                     # read float into $f0
+    mov.s   $f2, $f0            # move x_max to $f2
 
-    c.lt.s  $f2, $f1        # fail if x_min >= x_max
+    c.lt.s  $f2, $f1            # fail if x_min >= x_max
     bc1t    error0
 
-    la      $a0, steps      # load address of "steps: " into $a0
-    li      $v0, 4          # load system code for string output
-    syscall                 # print string
+    la      $a0, steps          # load address of "steps: " into $a0
+    li      $v0, 4              # load system code for string output
+    syscall                     # print string
 
-    li      $v0, 5          # load system code for float input
-    syscall                 # read float into $f0
-    move    $t0, $v0        # move steps to $t0
+    li      $v0, 5              # load system code for float input
+    syscall                     # read float into $f0
+    move    $s0, $v0            # move steps to $s0
 
-    addi    $t1, $t0, -1    # write n-1 to $t1
-    blez    $t1, error1     # fail if steps <= 1
+    addi    $t1, $s0, -1        # write n-1 to $t1
+    blez    $t1, error1         # fail if steps <= 1
 
     mtc1    $t1, $f4
-    cvt.s.w $f4, $f4        # cast n-1 to float (in $f4)
+    cvt.s.w $f4, $f4            # cast n-1 to float (in $f4)
 
-    sub.s   $f3, $f2, $f1   # write (xmax-xmin) to $f3
-    div.s   $f4, $f3, $f4   # intervall = (xmax-xmin)/(n-1) in $f4
+    sub.s   $f3, $f2, $f1       # write (xmax-xmin) to $f3
+    div.s   $f20, $f3, $f4      # intervall = (xmax-xmin)/(n-1) in $f20
 
+    mov.s   $f12, $f1           # write x_min (steps) to $f12
+
+main_loop:
+    jal     sin                 # call sin(step)
+    mov.s   $f21, $f0           # move sin(step) to $f21
+    jal     cos                 # call cos(step)
+    mov.s   $f22, $f0           # move cos(step) to $f22
+    jal     tan                 # call tan(step)
+   
+    addi    $s0, -1             # n--;
+    beqz    $s0, end            # exit if n == 0
+
+    add.s   $f12, $f12, $f20    # step += intervall;
+    j       main_loop           # looooop
+
+
+sin:
+    subu    $sp, $sp, 4         # allocate space to save $ra and x
+    sw      $ra, 4($sp)         # save $ra
+    s.s     $f12, 0($sp)        # save x
+
+    lw      $ra, 4($sp)         # load $ra
+    l.s     $f12, 0($sp)        # load x
+    addi    $sp, $sp, 8         # aaaand return
+    jr      $ra
+
+cos:
+    jr      $ra
+
+tan:
+    jr      $ra
 
 end:
     li      $v0, 10
@@ -58,6 +89,7 @@ error0:
     li      $v0, 4          # load system code for string output
     syscall
     j       end
+
 
 error1:
     la      $a0, err1       # load address of error #1
