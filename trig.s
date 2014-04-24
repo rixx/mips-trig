@@ -2,8 +2,17 @@
 xmin: .asciiz "x_min: "
 xmax: .asciiz "x_max: "
 steps: .asciiz "steps: "
+
 err0: .asciiz "x_max should be greater than x_min."
 err1: .asciiz "steps should be greater than 1."
+
+halfpi: .float 1.5707963
+mhalfpi: .float -1.5707963
+pi: .float 3.141592
+mpi: .float -3.141592
+twopi: .float 6.283185
+fzero: .float 0.0
+
 newline: .asciiz "\n"
 
 .globl main
@@ -52,6 +61,13 @@ main:
 main_loop:
     mov.s   $f12, $f20          # move step to $f12
     jal     sin                 # call sin(step)
+    
+    mov.s   $f12, $f0
+    li      $v0, 2              # load system code for float output
+    syscall                     # read int into $v0
+    la      $a0, newline
+    li      $v0, 4
+    syscall
 
     mov.s   $f22, $f0           # move sin(step) to $f22
     mov.s   $f12, $f20          # move step to $f12
@@ -68,20 +84,131 @@ main_loop:
     j       main_loop           # looooop
 
 
-sin
+sin:
+    subu    $sp, $sp, 4         # allocate space to save $ra and x
+    sw      $ra, 4($sp)         # save $ra
+    s.s     $f12, 0($sp)        # save x
+
+    l.s     $f1, mhalfpi        # -pi/2 in $f1
+    l.s     $f2, halfpi         # pi/2 in $f2
+    l.s     $f3, mpi            # -pi in $f3
+    l.s     $f4, pi             # pi in $f4
+    l.s     $f5, twopi          # 2*pi in $f5
+
+    c.lt.s  $f12, $f3
+    bc1t    sin_norm1           # continue at sin_norm1 if x < -pi
+    c.lt.s  $f4, $f12
+    bc1t    sin_norm2           # continue at sin_norm2 if x > pi
+    j       sin_call            # else continue at sin_call
+
+sin_norm1:
+    add.s   $f12, $f12, $f5     # x += 2*pi
+    c.lt.s  $f12, $f3           # while (x < -pi)
+    bc1t    sin_norm1
+    j       sin_call
+
+sin_norm2:
+    sub.s   $f12, $f12, $f5     # x -= 2*pi
+    c.lt.s  $f4, $f12           # while (x > pi)
+    bc1t    sin_norm2
+    j       sin_call
+
+sin_call:
+    c.lt.s  $f12, $f1           # if x < -pi/2
+    bc1t    sin_call1
+    c.lt.s  $f2, $f12           # if x > pi/2
+    bc1t    sin_call2
+    jal     sin0
+
+endsin:
+    lw      $ra, 4($sp)         # load $ra
+    l.s     $f12, 0($sp)        # load x
+    addi    $sp, $sp, 4         # aaaand return
+    jr      $ra
+
+sin_call1:
+    add.s   $f12, $f12, $f4      # sin0(x + pi)
+    jal     sin0
+    j       sin_inv 
+
+sin_call2:
+    sub.s   $f12, $f12, $f4     # sin0(x - pi)
+    jal     sin0
+    j       sin_inv
+
+sin_inv:
+    l.s     $f5, fzero
+    sub.s   $f0, $f5, $f0
+    j       endsin
+
+
+sin0:
+    subu    $sp, $sp, 4         # allocate space to save $ra and x
+    sw      $ra, 4($sp)         # save $ra
+    s.s     $f12, 0($sp)        # save x
+
+    li      $t0, 1              # t0 = 1 (= i)
+    li      $t2, 2              # t2 = 2 * i 
+    li      $t3, 1              # t3 = 1 (= fac)
+    li      $t1, 6              # t1 = maxiter
+    mov.s   $f1, $f12           # $f1 = x (= pow)
+    mov.s   $f0, $f12           # $f0 = x (= result)
+    mul.s   $f2, $f12, $f12     # $f2 = x^2
+
+sin0loop:
+    mul.s   $f1, $f1, $f2       # pow *= x * x
+    mul     $t3, $t3, $t2       # fac *= 2i
+    addi    $t2, $t2, 1
+    mul     $t3, $t3, $t2       # fac *= (2i + 1)
+    addi    $t2, $t2, 1
+
+    mtc1    $t3, $f3            # cast fac to float
+    cvt.s.w $f3, $f3
+    div.s   $f3, $f1, $f3       # result -= (pow/fac)
+    sub.s   $f0, $f0, $f3
+
+    addi    $t0, $t0, 1
+    beq     $t0, $t1, sin0end
+
+    mul.s   $f1, $f1, $f2       # pow *= x * x
+    mul     $t3, $t3, $t2       # fac *= 2i
+    addi    $t2, $t2, 1
+    mul     $t3, $t3, $t2       # fac *= (2i + 1)
+    addi    $t2, $t2, 1
+
+    mtc1    $t3, $f3            # cast fac to float
+    cvt.s.w $f3, $f3
+    div.s   $f3, $f1, $f3       # result += (pow/fac)
+    add.s   $f0, $f0, $f3
+
+    addi    $t0, $t0, 1
+    bne     $t0, $t1, sin0loop
+
+sin0end:
+    lw      $ra, 4($sp)         # load $ra
+    l.s     $f12, 0($sp)        # load x
+    addi    $sp, $sp, 4         # aaaand return
+    jr      $ra
+
+
+cos:
     subu    $sp, $sp, 4         # allocate space to save $ra and x
     sw      $ra, 4($sp)         # save $ra
     s.s     $f12, 0($sp)        # save x
 
     lw      $ra, 4($sp)         # load $ra
     l.s     $f12, 0($sp)        # load x
-    addi    $sp, $sp, 8         # aaaand return
-    jr      $ra
-
-cos:
+    addi    $sp, $sp, 4         # aaaand return
     jr      $ra
 
 tan:
+    subu    $sp, $sp, 4         # allocate space to save $ra and x
+    sw      $ra, 4($sp)         # save $ra
+    s.s     $f12, 0($sp)        # save x
+
+    lw      $ra, 4($sp)         # load $ra
+    l.s     $f12, 0($sp)        # load x
+    addi    $sp, $sp, 4         # aaaand return
     jr      $ra
 
 end:
