@@ -14,6 +14,9 @@ twopi: .float 6.283185
 fzero: .float 0.0
 
 newline: .asciiz "\n"
+space: .asciiz " "
+separator: .asciiz " | "
+headline: .asciiz "x          | sin        | cos        | tan\n"
 
 .globl main
 
@@ -56,26 +59,49 @@ main:
     sub.s   $f3, $f2, $f1       # write (xmax-xmin) to $f3
     div.s   $f21, $f3, $f4      # intervall = (xmax-xmin)/(n-1) in $f21
 
+    la      $a0, headline
+    li      $v0, 4
+    syscall
+
     mov.s   $f20, $f1           # write x_min (steps) to $f20
 
 main_loop:
+    mov.s   $f12, $f20
+    li      $v0, 2
+    syscall
+    la      $a0, separator
+    li      $v0, 4
+    syscall
+
     mov.s   $f12, $f20          # move step to $f12
     jal     sin                 # call sin(step)
     
     mov.s   $f12, $f0
     li      $v0, 2              # load system code for float output
     syscall                     # read int into $v0
-    la      $a0, newline
+    la      $a0, separator
     li      $v0, 4
     syscall
 
     mov.s   $f22, $f0           # move sin(step) to $f22
     mov.s   $f12, $f20          # move step to $f12
     jal     cos                 # call cos(step)
+    mov.s   $f12, $f0
+    li      $v0, 2              # load system code for float output
+    syscall                     # read int into $v0
+    la      $a0, separator
+    li      $v0, 4
+    syscall
 
     mov.s   $f23, $f0           # move cos(step) to $f23
     mov.s   $f12, $f20          # move step to $f12
     jal     tan                 # call tan(step)
+    mov.s   $f12, $f0
+    li      $v0, 2              # load system code for float output
+    syscall                     # read int into $v0
+    la      $a0, newline
+    li      $v0, 4
+    syscall
    
     addi    $s0, -1             # n--;
     beqz    $s0, end            # exit if n == 0
@@ -150,7 +176,7 @@ sin0:
     li      $t0, 1              # t0 = 1 (= i)
     li      $t2, 2              # t2 = 2 * i 
     li      $t3, 1              # t3 = 1 (= fac)
-    li      $t1, 6              # t1 = maxiter
+    li      $t1, 7              # t1 = maxiter
     mov.s   $f1, $f12           # $f1 = x (= pow)
     mov.s   $f0, $f12           # $f0 = x (= result)
     mul.s   $f2, $f12, $f12     # $f2 = x^2
@@ -196,6 +222,10 @@ cos:
     sw      $ra, 4($sp)         # save $ra
     s.s     $f12, 0($sp)        # save x
 
+    l.s     $f1, halfpi
+    sub.s   $f12, $f1, $f12
+    jal     sin0
+
     lw      $ra, 4($sp)         # load $ra
     l.s     $f12, 0($sp)        # load x
     addi    $sp, $sp, 4         # aaaand return
@@ -206,10 +236,63 @@ tan:
     sw      $ra, 4($sp)         # save $ra
     s.s     $f12, 0($sp)        # save x
 
+    l.s     $f1, mhalfpi
+    l.s     $f2, halfpi
+    l.s     $f3, pi
+
+    c.lt.s  $f0, $f1
+    bc1t    tan_norm1
+
+    c.lt.s  $f2, $f0
+    bc1t    tan_norm2
+
+    c.eq.s  $f0, $f1
+    bc1t    tan_nan
+    c.eq.s  $f0, $f2
+    bc1t    tan_nan
+
+tan_call:
+    jal     tan0
+
+tan_end:
     lw      $ra, 4($sp)         # load $ra
     l.s     $f12, 0($sp)        # load x
     addi    $sp, $sp, 4         # aaaand return
     jr      $ra
+
+tan_norm1:
+    add.s   $f0, $f0, $f2
+    c.lt.s  $f0, $f1
+    bc1t    tan_norm1
+    j       tan_call
+
+tan_norm2:
+    sub.s   $f0, $f0, $f2
+    c.lt.s  $f2, $f0
+    bc1t    tan_norm2
+    j       tan_call
+
+tan_nan:
+    l.s     $f1, fzero
+    div.s   $f12, $f1, $f1
+    j       tan_end
+
+
+tan0:
+    subu    $sp, $sp, 4         # allocate space to save $ra and x
+    sw      $ra, 4($sp)         # save $ra
+    s.s     $f12, 0($sp)        # save x
+
+    jal     sin0
+    mov.s   $f1, $f12
+    jal     cos
+    div.s   $f0, $f1, $f12
+
+    lw      $ra, 4($sp)         # load $ra
+    l.s     $f12, 0($sp)        # load x
+    addi    $sp, $sp, 4         # aaaand return
+    jr      $ra
+
 
 end:
     li      $v0, 10
