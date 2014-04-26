@@ -59,26 +59,27 @@ main:
     sub.s   $f3, $f2, $f1       # write (xmax-xmin) to $f3
     div.s   $f21, $f3, $f4      # intervall = (xmax-xmin)/(n-1) in $f21
 
-    la      $a0, headline
+    la      $a0, headline       # print headline of table
     li      $v0, 4
     syscall
 
     mov.s   $f20, $f1           # write x_min (steps) to $f20
+                                # so it will be saved by other functions
 
 main_loop:
-    mov.s   $f12, $f20
+    mov.s   $f12, $f20          # print current x
     li      $v0, 2
     syscall
     la      $a0, separator
     li      $v0, 4
     syscall
 
-    mov.s   $f12, $f20          # move step to $f12
+    mov.s   $f12, $f20          # move x to $f12
     jal     sin                 # call sin(step)
     
-    mov.s   $f12, $f0
-    li      $v0, 2              # load system code for float output
-    syscall                     # read int into $v0
+    mov.s   $f12, $f0           # print result of sin(x)
+    li      $v0, 2              
+    syscall                    
     la      $a0, separator
     li      $v0, 4
     syscall
@@ -86,9 +87,10 @@ main_loop:
     mov.s   $f22, $f0           # move sin(step) to $f22
     mov.s   $f12, $f20          # move step to $f12
     jal     cos                 # call cos(step)
-    mov.s   $f12, $f0
-    li      $v0, 2              # load system code for float output
-    syscall                     # read int into $v0
+
+    mov.s   $f12, $f0           # print result of cos(x)
+    li      $v0, 2              
+    syscall                    
     la      $a0, separator
     li      $v0, 4
     syscall
