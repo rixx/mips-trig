@@ -240,16 +240,11 @@ tan:
     l.s     $f2, halfpi
     l.s     $f3, pi
 
-    c.lt.s  $f0, $f1
+    c.lt.s  $f12, $f1
     bc1t    tan_norm1
 
-    c.lt.s  $f2, $f0
+    c.lt.s  $f2, $f12
     bc1t    tan_norm2
-
-    c.eq.s  $f0, $f1
-    bc1t    tan_nan
-    c.eq.s  $f0, $f2
-    bc1t    tan_nan
 
 tan_call:
     jal     tan0
@@ -261,32 +256,29 @@ tan_end:
     jr      $ra
 
 tan_norm1:
-    add.s   $f0, $f0, $f2
-    c.lt.s  $f0, $f1
+    add.s   $f12, $f12, $f3
+    c.lt.s  $f12, $f1
     bc1t    tan_norm1
     j       tan_call
 
 tan_norm2:
-    sub.s   $f0, $f0, $f2
-    c.lt.s  $f2, $f0
+    sub.s   $f12, $f12, $f3
+    c.lt.s  $f2, $f12
     bc1t    tan_norm2
     j       tan_call
-
-tan_nan:
-    l.s     $f1, fzero
-    div.s   $f12, $f1, $f1
-    j       tan_end
 
 
 tan0:
     subu    $sp, $sp, 4         # allocate space to save $ra and x
     sw      $ra, 4($sp)         # save $ra
     s.s     $f12, 0($sp)        # save x
+    mov.s   $f25, $f12
 
     jal     sin0
-    mov.s   $f1, $f12
+    mov.s   $f26, $f0
     jal     cos
-    div.s   $f0, $f1, $f12
+
+    div.s   $f0, $f26, $f0
 
     lw      $ra, 4($sp)         # load $ra
     l.s     $f12, 0($sp)        # load x
